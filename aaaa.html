@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+  <script id="shader-vs" type="x-shader/x-vertex">
+      attribute vec3 aPosition;
+			attribute vec2 aTextureCoord;
+			varying vec2 vTextureCoord;
+
+      uniform mat4 uModelView;
+      uniform mat4 uProj;
+
+      varying vec4 vPosition;
+
+      void main()
+      {
+          gl_Position = uProj * uModelView * vec4(aPosition,1.0);
+          vTextureCoord = aTextureCoord;
+
+          vPosition = gl_Position;
+      }
+  </script>
+  <script id="shader-fs" type="x-shader/x-fragment">
+			precision mediump float;
+			varying vec2 vTextureCoord;
+			uniform sampler2D uSampler;
+
+      varying vec4 vPosition;
+      float distance;
+      void main()
+      {
+          float x = vPosition.x;
+          float y = vPosition.y;
+          float dis2 = x*x + y*y;
+          float a = dis2 / 1.0;
+          vec4 oldColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+          vec4 newColor = vec4(oldColor.x, oldColor.y, oldColor.z, a);
+          gl_FragColor = newColor;
+      }
+  </script>
+</head>
+<body>
+
+</body>
+</html>

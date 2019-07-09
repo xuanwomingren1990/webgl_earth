@@ -1,0 +1,433 @@
+<!doctype html>
+<html>
+<head>
+  <title>第一个纹理Demo</title>
+  <meta http-equiv="Content-Type" content="text/html" />
+  <meta name="charset" content="utf-8"/>
+  <style type="text/css">
+    html,body,div{margin:0;padding:0}
+  </style>
+  <!--<script type="text/javascript" src="http://localhost/arcgis_js_api/library/2.7/jsapi/"></script>-->
+  <link rel="stylesheet" href="https://js.arcgis.com/3.28/esri/css/esri.css">
+  <script src="https://js.arcgis.com/3.28/"></script>
+  <script type="text/javascript" src="./world/World.js"></script>
+  <!--aaaa-->
+  <!--<script id="shader-vs" type="x-shader/x-vertex">-->
+      <!--attribute vec3 aPosition;-->
+			<!--attribute vec2 aTextureCoord;-->
+			<!--varying vec2 vTextureCoord;-->
+
+      <!--uniform mat4 uModelView;-->
+      <!--uniform mat4 uProj;-->
+
+      <!--void main()-->
+      <!--{-->
+          <!--gl_Position = uProj * uModelView * vec4(aPosition,1.0);-->
+          <!--vTextureCoord = aTextureCoord;-->
+      <!--}-->
+  <!--</script>-->
+  <!--<script id="shader-fs" type="x-shader/x-fragment">-->
+			<!--precision mediump float;-->
+			<!--varying vec2 vTextureCoord;-->
+			<!--uniform sampler2D uSampler;-->
+      <!--void main()-->
+      <!--{-->
+          <!--float WT9_0  = 1.0 ;-->
+          <!--float WT9_1  = 0.8 ;-->
+          <!--float WT9_2  = 0.6 ;-->
+          <!--float WT9_3  = 0.4 ;-->
+          <!--float WT9_4  = 0.2 ;-->
+          <!--float WT9_NORMALIZE = (WT9_0+2.0*(WT9_1+WT9_2+WT9_3+WT9_4));-->
+          <!--float RTT_SIZE = 128.0;-->
+          <!--float TexelIncrement = 1.0 / RTT_SIZE;-->
+
+          <!--float a = texture2D(uSampler,vec2(vTextureCoord.s +1.0 * TexelIncrement  , vTextureCoord.t) ).w * (WT9_1/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s + 2.0 * TexelIncrement , vTextureCoord.t) ).w * (WT9_2/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s + 3.0 * TexelIncrement, vTextureCoord.t) ).w * (WT9_3/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s + 4.0 * TexelIncrement, vTextureCoord.t) ).w * (WT9_4/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s, vTextureCoord.t) ).w * (WT9_0/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s -1.0 * TexelIncrement, vTextureCoord.t) ).w * (WT9_1/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s -2.0 * TexelIncrement, vTextureCoord.t) ).w * (WT9_2/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s -3.0 * TexelIncrement, vTextureCoord.t) ).w * (WT9_3/WT9_NORMALIZE);-->
+          <!--a += texture2D(uSampler,vec2(vTextureCoord.s -4.0 * TexelIncrement, vTextureCoord.t) ).w * (WT9_3/WT9_NORMALIZE);-->
+
+          <!--float alpha = 1.0 - a;-->
+          <!--vec4 oldColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));-->
+          <!--vec4 newColor = vec4(oldColor.x, oldColor.y, oldColor.z, alpha);-->
+          <!--gl_FragColor = newColor;-->
+      <!--}-->
+  <!--</script>-->
+  <script id="shader-vs" type="x-shader/x-vertex">
+      attribute vec3 aPosition;
+			attribute vec2 aTextureCoord;
+			varying vec2 vTextureCoord;
+			varying vec4 vPosition;
+
+      uniform mat4 uModelView;
+      uniform mat4 uProj;
+
+      void main()
+      {
+          gl_Position = uProj * uModelView * vec4(aPosition,1.0);
+          vTextureCoord = aTextureCoord;
+          vPosition = gl_Position;
+      }
+  </script>
+  <script id="shader-fs" type="x-shader/x-fragment">
+			precision mediump float;
+			varying vec2 vTextureCoord;
+			uniform sampler2D uSampler;
+      varying vec4 vPosition;
+
+      uniform mat4 uModelView_fs;
+      uniform mat4 uProj_fs;
+      void main()
+      {
+          vec4 pos = uProj_fs * uModelView_fs * vec4(10.0, 0.0, 0.0, 1.0);
+          float r = sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
+          float x = vPosition.x;
+          float y = vPosition.y;
+          float z = vPosition.z;
+          float dis = sqrt(x*x + y*y + z*z);
+          if(dis >= 0.3 * r){
+            float alpha = 1.0 - (dis / r);
+            gl_FragColor  = vec4(1.0, 0.0, 0.0, alpha);
+          }else{
+            gl_FragColor  = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+          }
+      }
+  </script>
+  <script type="text/javascript">
+      var R = 10;
+      var canvas = null;
+      var gl = null;
+      var shaderProgram = null;
+      var aPositionLocation;
+      var aTextureCoordLocation;
+      var uModelViewLocation;
+      var uProjLocation;
+      var uModelViewLocation_fs;
+      var uProjLocation_fs;
+      var uSamplerLocation;
+
+      var vertexPositionBuffer;
+      var textureCoordBuffer;
+      var modelMatrix = new World.Matrix();
+      var camera = new World.PerspectiveCamera(90,1,1.0,200.0);
+      camera.look(new World.Vertice(0,0,1.5*R),new World.Vertice(0,0,0),new World.Vector(0,1,0));
+      var texture;
+      var bImageLoaded = false;
+
+      var bMouseDown = false;
+      var handleMouseMove;
+      var previousX=-1;
+      var previousY=-1;
+
+      /**
+       * 获取绘图上下文
+       * @param canvas
+       */
+      function initWebGL(canvas){
+          try{
+              gl = canvas.getContext("experimental-webgl",{antialias:true});
+          }
+          catch(e){
+              alert("浏览器不支持WebGL!");
+          }
+
+          if(!gl)
+              alert("浏览器不支持WebGL!");
+      }
+
+      /**
+       * 根据指定的代码片段，创建着色器
+       * @param gl      绘图上下文
+       * @param id      着色器程序代码片段
+       * @returns {*}   着色器
+       */
+      function getShader(gl,id){
+          var shaderScript = document.getElementById(id);
+          if(!shaderScript)
+              return null;
+
+          var shader = null;
+          if(shaderScript.type=="x-shader/x-vertex"){
+              shader = gl.createShader(gl.VERTEX_SHADER);
+          }
+          else if(shaderScript.type=="x-shader/x-fragment"){
+              shader = gl.createShader(gl.FRAGMENT_SHADER);
+          }
+          else{
+              return null;
+          }
+
+          gl.shaderSource(shader,shaderScript.text);
+          gl.compileShader(shader);
+
+          if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
+              alert(gl.getShaderInfoLog(shader));
+              gl.deleteShader(shader);
+              return null;
+          }
+
+          return shader;
+      }
+
+      /**
+       * 初始化着色器
+       */
+      function initShaders(){
+          var vertexShader = getShader(gl,"shader-vs");
+          var fragmentShader = getShader(gl,"shader-fs");
+
+          shaderProgram = gl.createProgram();
+          gl.attachShader(shaderProgram,vertexShader);
+          gl.attachShader(shaderProgram,fragmentShader);
+          gl.linkProgram(shaderProgram);
+
+          if(!gl.getProgramParameter(shaderProgram,gl.LINK_STATUS)){
+              alert("Could not link program");
+              gl.deleteProgram(shaderProgram);
+              gl.deleteShader(vertexShader);
+              gl.deleteShader(fragmentShader);
+              return;
+          }
+
+          gl.useProgram(shaderProgram);
+
+          aPositionLocation = gl.getAttribLocation(shaderProgram,"aPosition");
+          gl.enableVertexAttribArray(aPositionLocation);
+
+          aTextureCoordLocation = gl.getAttribLocation(shaderProgram,"aTextureCoord");
+          gl.enableVertexAttribArray(aTextureCoordLocation);
+
+          uModelViewLocation = gl.getUniformLocation(shaderProgram,"uModelView");
+          uModelViewLocation_fs = gl.getUniformLocation(shaderProgram,"uModelView_fs");
+          uProjLocation = gl.getUniformLocation(shaderProgram,"uProj");
+          uProjLocation_fs = gl.getUniformLocation(shaderProgram,"uProj_fs");
+          uSamplerLocation = gl.getUniformLocation(shaderProgram,"uSampler");
+      }
+
+      /**
+       * 创建存储【绘图区域顶点坐标】的缓冲区对象 和
+       * 创建存储【纹理坐标】的缓冲区对象
+       */
+      function initBuffer(){
+          vertexPositionBuffer = gl.createBuffer();
+          textureCoordBuffer = gl.createBuffer();
+      }
+
+      /**
+       * 加载并配置纹理
+       * @param name  纹理图象的url地址
+       */
+      function initTexture(name){
+          texture = gl.createTexture();
+          texture.image = new Image();
+          texture.image.onload = function () {
+              handleLoadedTexture(texture);
+          };
+
+          texture.image.src = name;
+      }
+
+      /**
+       * 图片加载完成后，立刻执行。加载得到纹理后，进行配置，供webgl系统使用
+       * @param texture   纹理对象
+       */
+      function handleLoadedTexture(texture) {
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.bindTexture(gl.TEXTURE_2D, null);
+          bImageLoaded = true;
+      }
+
+      function drawEarth(column,row){
+          var eachLog = 180 / column;
+          var eachLat = 90 / row;
+          for(var i = 0;i < column;i++){
+              for(var j = 0;j < row;j++){
+                  var log1 = eachLog * i;
+                  var log2 = eachLog * (i+1);
+                  var lat1 = eachLat * j;
+                  var lat2 = eachLat * (j+1);
+                  var p1 = getXYZ(log1,lat1,R);
+                  var p2 = getXYZ(log2,lat1,R);
+                  var p3 = getXYZ(log1,lat2,R);
+                  var p4 = getXYZ(log2,lat2,R);
+
+
+                  var vertices;
+                  var textureCoords;
+
+                  //东北半球
+                  vertices = [
+                      p1[0],p1[1],p1[2],//左下角点
+                      p2[0],p2[1],p2[2],//右下角点
+                      p3[0],p3[1],p3[2],//左上角点
+                      p4[0],p4[1],p4[2]//右上角点
+                  ];
+                  textureCoords = [0.5+log1/360,0.5+lat1/180,//左下角点
+                      0.5+log2/360,0.5+lat1/180,//右下角点
+                      0.5+log1/360,0.5+lat2/180,//左上角点
+                      0.5+log2/360,0.5+lat2/180];//右上角点
+                  drawFace(vertices,textureCoords);
+
+                  //东南半球
+                  vertices = [p3[0],-p3[1],p3[2],
+                      p4[0],-p4[1],p4[2],
+                      p1[0],-p1[1],p1[2],
+                      p2[0],-p2[1],p2[2]];
+                  textureCoords = [0.5+log1/360,0.5-lat2/180,
+                      0.5+log2/360,0.5-lat2/180,
+                      0.5+log1/360,0.5-lat1/180,
+                      0.5+log2/360,0.5-lat1/180];
+                  drawFace(vertices,textureCoords);
+
+                  //西北半球
+                  vertices = [-p2[0],p2[1],p2[2],
+                      -p1[0],p1[1],p1[2],
+                      -p4[0],p4[1],p4[2],
+                      -p3[0],p3[1],p3[2]];
+                  textureCoords = [0.5-log2/360,0.5+lat1/180,
+                      0.5-log1/360,0.5+lat1/180,
+                      0.5-log2/360,0.5+lat2/180,
+                      0.5-log1/360,0.5+lat2/180];
+                  drawFace(vertices,textureCoords);
+
+                  //西南半球
+                  vertices = [-p4[0],-p4[1],p4[2],
+                      -p3[0],-p3[1],p3[2],
+                      -p2[0],-p2[1],p2[2],
+                      -p1[0],-p1[1],p1[2]];
+                  textureCoords = [0.5-log2/360,0.5-lat2/180,
+                      0.5-log1/360,0.5-lat2/180,
+                      0.5-log2/360,0.5-lat1/180,
+                      0.5-log1/360,0.5-lat1/180];
+                  drawFace(vertices,textureCoords);
+              }
+          }
+      }
+
+      function drawFace(vertices,textureCoords){
+          gl.bindBuffer(gl.ARRAY_BUFFER,vertexPositionBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(vertices),gl.STATIC_DRAW);
+          gl.vertexAttribPointer(aPositionLocation,3,gl.FLOAT,false,0,0);
+
+          gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer);
+          gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(textureCoords),gl.STATIC_DRAW);
+          gl.vertexAttribPointer(aTextureCoordLocation,2, gl.FLOAT, false, 0, 0);
+
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl.uniform1i(uSamplerLocation, 0);
+
+          gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+      }
+
+      function getXYZ(longitude,latitude,r){
+          var vertice = [];
+          var radianLog = Math.PI/180*longitude;
+          var radianLat = Math.PI/180*latitude;
+          var sin1 = Math.sin(radianLog);
+          var cos1 = Math.cos(radianLog);
+          var sin2 = Math.sin(radianLat);
+          var cos2 = Math.cos(radianLat);
+          var x = r*sin1*cos2;
+          var y = r*sin2;
+          var z = r*cos1*cos2;
+          vertice.push(x);
+          vertice.push(y);
+          vertice.push(z);
+          return vertice;
+      }
+
+      function drawScene(){
+          gl.viewport(0,0,canvas.width,canvas.height);
+          gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+          gl.uniformMatrix4fv(uModelViewLocation,false,camera.getViewMatrix().multiply(modelMatrix).elements);
+          gl.uniformMatrix4fv(uModelViewLocation_fs,false,camera.getViewMatrix().multiply(modelMatrix).elements);
+          gl.uniformMatrix4fv(uProjLocation,false,camera.projMatrix.elements);
+          gl.uniformMatrix4fv(uProjLocation_fs,false,camera.projMatrix.elements);
+
+          if(bImageLoaded){
+              drawEarth(20,10);
+          }
+      }
+
+      function initRequestAnimationFrame(){
+          window.requestAnimationFrame = window.requestAnimationFrame
+              || window.mozRequestAnimationFrame
+              || window.webkitRequestAnimationFrame
+              || window.msRequestAnimationFrame
+              || window.oRequestAnimationFrame
+              || function(callback) {
+                  setTimeout(callback, 1000 / 60);
+              };
+      }
+
+      function tick() {
+          window.requestAnimationFrame(tick);
+          drawScene();
+      }
+
+      function canvasMouseDown(){
+          bMouseDown = true;
+          handleMouseMove = dojo.connect(dojo.byId("iCanvas"),"onmousemove","canvasMouseMove");
+      }
+
+      function canvasMouseMove(e){
+          var x = e.layerX||e.offsetX;
+          var y = e.layerY||e.offsetY;
+
+          if(previousX > 0 && previousY > 0){
+              var changeX = x - previousX;
+              var changeY = y - previousY;
+              var horCameraAngle = canvas.width / canvas.height * camera.fov;
+              var changeHorAngle = changeX / canvas.width * horCameraAngle;
+              var changeVerAngle = changeY / canvas.height * camera.fov;
+              camera.worldRotateY(-changeHorAngle*Math.PI/180);
+              camera.worldRotateX(-changeVerAngle*Math.PI/180);
+          }
+          previousX = x;
+          previousY = y;
+      }
+
+      function canvasMouseUp(){
+          bMouseDown = false;
+          dojo.disconnect(handleMouseMove);
+          previousX = -1;
+          previousY = -1;
+      }
+
+      function startWebGL(){
+          canvas = document.getElementById("iCanvas");
+          initWebGL(canvas);
+          initShaders();
+          initBuffer();
+          // initTexture("earth.jpg");
+          initTexture("moon.jpg");
+
+          gl.clearColor(0.0, 0.0, 0.0, 1.0);
+          gl.enable(gl.DEPTH_TEST);
+          gl.depthFunc(gl.LEQUAL);
+          gl.enable(gl.CULL_FACE);//一定要启用裁剪，否则显示不出立体感
+          gl.cullFace(gl.BACK);//裁剪掉背面
+          initRequestAnimationFrame();
+          tick();
+      }
+
+      function init(){
+          // dojo.connect(dojo.byId("iCanvas"),"onmousedown","canvasMouseDown");
+          // dojo.connect(dojo.byId("iCanvas"),"onmouseup","canvasMouseUp");
+          startWebGL();
+      }
+  </script>
+</head>
+<body onload="init();">
+<canvas id="iCanvas" width="600" height="600" style="margin-left:100px;margin-top:30px;border:1px solid #000;"></canvas>
+</body>
+</html>
